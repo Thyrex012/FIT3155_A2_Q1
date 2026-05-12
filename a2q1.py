@@ -14,7 +14,7 @@ class Node:
 class Ukkonen_algorithm:
     def __init__(self):
         self.root = Node(-1, -1, isLeaf = False, isRoot= True)
-        self.root.suffix_link = self.root 
+        self.root.suffix_link = self.root
         self.ALPHABET_START = 36
         self.ALPHABET_END = 126
         self.global_end = End(0)
@@ -25,10 +25,11 @@ class Ukkonen_algorithm:
 
     def construct_suffix_array(self, txt):
         txt_with_dollar = txt + '$'
-        phase_i = 0
-        extension_j = 0
-        while phase_i >= len(txt_with_dollar):
-            while extension_j <= phase_i:
+        n = len(txt_with_dollar)
+        last_j = 0
+        for i in range(n):
+            for j in range(last_j, i+1):
+                self.active_node, self.remainder = self.traverse(self.active_node, self.remainder)
                 return
             
     def rule_two_regular(self, active_node: Node, remainder: tuple[int, int], txt_with_dollar, phase_i, new_remainder):
@@ -85,6 +86,36 @@ class Ukkonen_algorithm:
     def rule_three(self, new_active_node, new_remainder):
         self.active_node = new_active_node
         self.remainder = new_remainder
+    
+    def traverse(self, active_node: Node, remainder, txt_with_dollar) -> tuple[Node, tuple[int,int] | None]:
+        if remainder == None:
+            return active_node, None
+        
+        remainder_start, remainder_end = remainder
+        skip_count_start = remainder_start
+        curr_node = active_node
+
+        #Performing skip counts until its no longer possible
+        while skip_count_start <= remainder_end:
+            start_char_index = ord(txt_with_dollar[skip_count_start]) - self.ALPHABET_START
+            curr_node = curr_node.children[start_char_index]
+            if curr_node.isLeaf == False:
+                curr_node_start = curr_node.start
+                curr_node_end = curr_node.end
+            else:
+                curr_node_start = curr_node.start
+                curr_node_end = curr_node.end.val
+            curr_node_length = curr_node_end - curr_node_start + 1
+
+            remaining_length = remainder_end - skip_count_start + 1
+            if remaining_length <= curr_node_length:
+                break
+
+            skip_count_start += curr_node_length
+
+        return curr_node, (skip_count_start, remainder_end)
+            
+        
 
     def create_new_leaf(self, start: int) -> Node:
         return Node(start, self.global_end, isLeaf=True)
