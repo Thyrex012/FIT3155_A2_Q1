@@ -3,13 +3,17 @@ class End:
         self.val = val
 
 class Node:
-    def __init__(self, start, end, suffix_link = None, isLeaf = False, isRoot = False):
-        self.start: int = start
-        self.end: int | End = end
+    def __init__(self, suffix_link = None, isLeaf = False, isRoot = False):
         self.suffix_link: Node = suffix_link
         self.children = [None for _ in range(126-36+1)]
-        self.isLeaf: bool = isLeaf
-        self.isRoot: bool = isRoot
+        self.isLeaf = isLeaf
+        self.isRoot = isRoot
+
+class Edge:
+    def __init__(self, start: int, end: int, child_node: Node):
+        self.start = start
+        self.end = end
+        self.child_node = child_node
 
 class Ukkonen_algorithm:
     def __init__(self):
@@ -28,8 +32,12 @@ class Ukkonen_algorithm:
         n = len(txt_with_dollar)
         last_j = 0
         for i in range(n):
+            self.global_end.val = i
             for j in range(last_j, i+1):
                 self.active_node, self.remainder = self.traverse(self.active_node, self.remainder)
+                if self.remainder == None and self.active_node.children[i+1] == None:
+                    self.rule_two_alternate(self.active_node, , txt_with_dollar, i, self.remainder)
+                else if 
                 return
             
     def rule_two_regular(self, active_node: Node, remainder: tuple[int, int], txt_with_dollar, phase_i, new_remainder):
