@@ -160,6 +160,13 @@ class Ukkonen_algorithm:
         return new_active_node, new_remainder
     
     def rule_three(self, new_active_node, new_remainder):
+        
+        # If the previous extension's pending node hasn't been resolved yet then the active node 
+        # for the extension will resolve it
+        if self.pending_node is not None:
+            self.pending_node.suffix_link = new_active_node
+            self.pending_node = None
+
         return new_active_node, new_remainder
     
     def perform_extension(self, active_node: Node, remainder, phase_i: int, txt_with_dollar) -> int:
