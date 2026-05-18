@@ -17,7 +17,7 @@ class Node:
         self.suffix_index = suffix_index
 
 class Edge:
-    def __init__(self, start: int, end: int | End, child_node: Node):
+    def __init__(self, start: int, end, child_node: Node):
         self.start = start
         self.end = end
         self.child_node = child_node
@@ -46,20 +46,24 @@ class Ukkonen_algorithm:
         self.pending_node: Node = None # When a new node is created in extension j it's suffix link 
                                       # will be resolved in extension j+1
 
-    def construct_suffix_array(self, txt):
+    def construct_suffix_tree(self, txt):
         txt_with_dollar = txt + '$'
         n = len(txt_with_dollar)
         last_j = 0
-        for i in range(n):
-            self.global_end.val = i
-            for j in range(last_j, i+1):
+        for phase_i in range(n):
+            self.global_end.val = phase_i
+            for _ in range(last_j, phase_i+1):
                 self.active_node, self.remainder = self.traverse(self.active_node, self.remainder, txt_with_dollar)
-                return
+                extension_performed = self.perform_extension(self.active_node, self.remainder, phase_i, txt_with_dollar)
+                if extension_performed == 3:
+                    break
+                else:
+                    last_j += 1
     
     #################################
     #    Traversal via skip count
     #################################
-    def traverse(self, active_node: Node, remainder, txt_with_dollar) -> tuple[Node, tuple[int,int] | None]:
+    def traverse(self, active_node: Node, remainder, txt_with_dollar):
         if remainder == None:
             return active_node, None
         
@@ -88,31 +92,29 @@ class Ukkonen_algorithm:
     ##############################
     #   Suffix extensions rules
     ##############################
-    def rule_two_regular(self, active_node: Node, remainder: tuple[int, int], txt_with_dollar, phase_i, new_remainder):
+    def rule_two_regular(self, active_node: Node, end: End, remainder: tuple[int, int], txt_with_dollar, phase_i) -> tuple[Node, (int, int)]:
         remainder_start, remainder_end = remainder
         remainder_length = remainder_end - remainder_start + 1
 
         # the edge we are splitting: find the child of active_node that remainder starts with
         first_char_index = ord(txt_with_dollar[remainder_start]) - self.ALPHABET_START
-        edge_node = active_node.children[first_char_index]
+        edge_that_need_to_split = active_node.children[first_char_index]
+        index_at_split_end = edge_that_need_to_split.start + remainder_length - 1
 
-        split_end = edge_node.start + remainder_length - 1
-        new_internal_node = self.create_new_internal_node(edge_node.start, split_end)
+        # Creating a new edge from the internal node and attach it to the old child
+        index_after_split_end = index_at_split_end + 1
+        new_internal_node = self.create_new_internal_node()
+        start_index_of_new_internal_node = ord(txt_with_dollar[index_after_split_end]) - self.ALPHABET_START
+        new_internal_node.children[start_index_of_new_internal_node] = Edge(index_after_split_end, edge_that_need_to_split.end, edge_that_need_to_split.child_node)
 
-        # Attach the edge node to the internal node instead
-        index_after_split_end = split_end + 1
-        edge_node.start = index_after_split_end
-        start_index_char = ord(txt_with_dollar[index_after_split_end]) - self.ALPHABET_START
-        new_internal_node.children[start_index_char] = edge_node
+        # Creating a new leaf for the phase i character and attach it with the new internal node
+        new_leaf = self.create_new_leaf(phase_i)
+        new_leaf_index = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
+        edge_to_new_leaf = Edge(phase_i, end, new_leaf)
+        new_internal_node.children[new_leaf_index] = edge_to_new_leaf
 
-        # Now we'll create a new leaf node for the phase_i character that caused rule 2 regular
-        # to occur in the first place and attach it to the newly created internal node
-        new_leaf_for_phase_i = self.create_new_leaf(phase_i)
-        start_index_char = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
-        new_internal_node.children[start_index_char] = new_leaf_for_phase_i
-
-        # Connect the new internal node to the active node
-        active_node.children[first_char_index] = new_internal_node
+        # Replace the active node's old edge with an edge to the newly created internal node
+        active_node.children[first_char_index] = Edge(edge_that_need_to_split.start, index_at_split_end, new_internal_node)
 
         # If the previous extension's pending node hasn't been resolved yet then the pending
         # node will form a sufffix link to the newly created internal node
@@ -122,8 +124,18 @@ class Ukkonen_algorithm:
         # We'll set the new internal node as unresolved 
         self.pending_node = new_internal_node
 
-        self.active_node = active_node.suffix_link
-        self.remainder = new_remainder
+        # We'll check if the active node is the root because if it is then it'll perform a suffix link to itself within the next
+        # extension meaning that the remainder's first character will be removed whereas if the active node isn't the root then the 
+        # remainder stays the same
+        if active_node.isRoot:
+            if remainder_start < remainder_end:
+                new_remainder = (remainder_start + 1, remainder_end)
+            else:
+                new_remainder = None
+        else:
+            new_remainder = remainder
+
+        return active_node.suffix_link, new_remainder
     
     def rule_two_alternate(self, active_node: Node, start: int, end: End, txt_with_dollar) -> tuple[Node, None]:
         # Create the leaf node and also the edge that will connect to the leaf node
@@ -148,17 +160,29 @@ class Ukkonen_algorithm:
         return new_active_node, new_remainder
     
     def rule_three(self, new_active_node, new_remainder):
-        self.active_node = new_active_node
-        self.remainder = new_remainder
+        return new_active_node, new_remainder
     
-    def perform_extension(self, active_node, remainder, phase_i, txt_with_dollar):
+    def perform_extension(self, active_node: Node, remainder, phase_i: int, txt_with_dollar) -> int:
         if remainder == None:
             start_char_index = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
             curr_edge_to_traverse = active_node.children[start_char_index]
             if curr_edge_to_traverse == None:
-                self.rule_two_alternate(active_node)
-
-
+                self.active_node, self.remainder = self.rule_two_alternate(active_node, phase_i, self.global_end, txt_with_dollar)
+                return 2
+            else:
+                self.active_node, self.remainder = self.rule_three(active_node, (phase_i, phase_i))
+                return 3
+        else:
+            remainder_start, remainder_end = remainder
+            first_char_index = ord(txt_with_dollar[remainder_start]) - self.ALPHABET_START
+            curr_edge_to_traverse = active_node.children[first_char_index]
+            next_char_pos = remainder_start + (remainder_end - remainder_start + 1)
+            if txt_with_dollar[next_char_pos] != txt_with_dollar[phase_i]:
+                self.active_node, self.remainder = self.rule_two_regular(active_node, self.global_end, remainder, txt_with_dollar, phase_i)
+                return 2
+            else:
+                self.active_node, self.remainder = self.rule_three(active_node, (remainder_start, remainder_end + 1))
+                return 3
 
     def create_new_leaf(self, suffix_index) -> Node:
         return Node(isLeaf=True, suffix_index= suffix_index)
@@ -166,6 +190,7 @@ class Ukkonen_algorithm:
     def create_new_internal_node(self) -> Node:
         return Node()
     
-
+ukkonen = Ukkonen_algorithm()
+ukkonen.construct_suffix_tree("abcd")
 
 
