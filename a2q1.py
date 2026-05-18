@@ -9,12 +9,13 @@ class End:
         self.val = val
 
 class Node:
-    def __init__(self, suffix_link = None, isLeaf = False, isRoot = False, suffix_index = -1):
+    def __init__(self, suffix_link = None, isLeaf = False, isRoot = False, suffix_index = -1, node_id = 0):
         self.suffix_link: Node = suffix_link
         self.children = [None for _ in range(126-36+1)]
         self.isLeaf = isLeaf
         self.isRoot = isRoot
         self.suffix_index = suffix_index
+        self.node_id = node_id #Used to keep track of the creation of the node where 0 means that its made before 1 etc
 
 class Edge:
     def __init__(self, start: int, end, child_node: Node):
@@ -36,7 +37,8 @@ class Edge:
 #########################
 class Ukkonen_algorithm:
     def __init__(self):
-        self.root = Node(isLeaf = False, isRoot= True)
+        self.node_counter = 1 # For the created root node
+        self.root = Node(isLeaf = False, isRoot= True, node_id=self.node_counter)
         self.root.suffix_link = self.root
         self.ALPHABET_START = 36
         self.ALPHABET_END = 126
@@ -45,16 +47,18 @@ class Ukkonen_algorithm:
         self.remainder: tuple[int, int] = None
         self.pending_node: Node = None # When a new node is created in extension j it's suffix link 
                                       # will be resolved in extension j+1
-
+        
     def construct_suffix_tree(self, txt):
         txt_with_dollar = txt + '$'
         n = len(txt_with_dollar)
         last_j = 0
+        print("Root Node " + str(self.node_counter))
         for phase_i in range(n):
             self.global_end.val = phase_i
-            for _ in range(last_j, phase_i+1):
+            print("Phase " + str(phase_i+1) + " starts from Extn " + str(last_j+1)) # The phase and extension is converted to 1 base indexing
+            for extension_j in range(last_j, phase_i+1):
                 self.active_node, self.remainder = self.traverse(self.active_node, self.remainder, txt_with_dollar)
-                extension_performed = self.perform_extension(self.active_node, self.remainder, phase_i, txt_with_dollar)
+                extension_performed = self.perform_extension(self.active_node, self.remainder, phase_i, extension_j, txt_with_dollar)
                 if extension_performed == 3:
                     break
                 else:
@@ -81,13 +85,15 @@ class Ukkonen_algorithm:
             if remaining_length > edge_length:
                 skip_count_start += edge_length
                 curr_node = curr_edge_to_traverse.child_node
+            # As the remaining_length is equal to the edge_length it means that the remainder has fully been consumed and
+            # we're now currently standing on next node which becomes the new active node for us to perform our extensions on
+            elif remaining_length == edge_length:
+                return curr_edge_to_traverse.child_node, None
             # If the remaining length is smaller than the edge length then that means that we cant skip count further
             # and return back the most recent node we're standing on along with the remaining remainder that hasn't been
             # consumed
             else:
                 return curr_node, (skip_count_start, remainder_end)
-        #This means that we have directly landed on a node and there is no more remainder
-        return curr_node, None
     
     ##############################
     #   Suffix extensions rules
@@ -160,7 +166,7 @@ class Ukkonen_algorithm:
         return new_active_node, new_remainder
     
     def rule_three(self, new_active_node, new_remainder):
-        
+
         # If the previous extension's pending node hasn't been resolved yet then the active node 
         # for the extension will resolve it
         if self.pending_node is not None:
@@ -169,35 +175,65 @@ class Ukkonen_algorithm:
 
         return new_active_node, new_remainder
     
-    def perform_extension(self, active_node: Node, remainder, phase_i: int, txt_with_dollar) -> int:
+    def perform_extension(self, active_node: Node, remainder, phase_i: int, extension_j: int, txt_with_dollar: str) -> int:
         if remainder == None:
             start_char_index = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
             curr_edge_to_traverse = active_node.children[start_char_index]
             if curr_edge_to_traverse == None:
+                print(f'    Extn {extension_j+1} applies Rule 2 (alternate)')
+                print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
                 self.active_node, self.remainder = self.rule_two_alternate(active_node, phase_i, self.global_end, txt_with_dollar)
                 return 2
             else:
+                print(f'    Extn {extension_j+1} applies Rule 3')
+                print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
                 self.active_node, self.remainder = self.rule_three(active_node, (phase_i, phase_i))
                 return 3
         else:
             remainder_start, remainder_end = remainder
             first_char_index = ord(txt_with_dollar[remainder_start]) - self.ALPHABET_START
+
             curr_edge_to_traverse = active_node.children[first_char_index]
-            next_char_pos = remainder_start + (remainder_end - remainder_start + 1)
+            next_char_pos = curr_edge_to_traverse.start + (remainder_end - remainder_start + 1)
+
             if txt_with_dollar[next_char_pos] != txt_with_dollar[phase_i]:
+                print(f'    Extn {extension_j+1} applies Rule 2 (regular)')
+                print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
                 self.active_node, self.remainder = self.rule_two_regular(active_node, self.global_end, remainder, txt_with_dollar, phase_i)
                 return 2
             else:
+                print(f'    Extn {extension_j+1} applies Rule 3')
+                print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
                 self.active_node, self.remainder = self.rule_three(active_node, (remainder_start, remainder_end + 1))
                 return 3
+    
+    ############################
+    #     Helper functions
+    ############################
+    def remainder_to_str_for_runLog(self, remainder):
+        if remainder == None:
+            return "EMPTY"
+        else:
+            remainder_start, remainder_end = remainder
+            return f"S[{remainder_start+1}...{remainder_end+1}]"
 
     def create_new_leaf(self, suffix_index) -> Node:
-        return Node(isLeaf=True, suffix_index= suffix_index)
+        self.node_counter += 1
+        print(f"        Node {self.node_counter} created: Leaf Node!")
+        return Node(isLeaf=True, suffix_index= suffix_index, node_id=self.node_counter)
 
     def create_new_internal_node(self) -> Node:
-        return Node()
+        self.node_counter += 1
+        print(f"        Node {self.node_counter} created: Leaf Node!")
+        return Node(node_id=self.node_counter)
+    
+    #########################
+    #   Depth First Search
+    #########################
+    def depth_first_search(self, node: Node) -> list[int]:
+        return
+    
     
 ukkonen = Ukkonen_algorithm()
-ukkonen.construct_suffix_tree("abcd")
-
-
+# ukkonen.construct_suffix_tree("googol")
+ukkonen.construct_suffix_tree("abbbbcbbcbcabbbb")
