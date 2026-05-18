@@ -98,7 +98,7 @@ class Ukkonen_algorithm:
     ##############################
     #   Suffix extensions rules
     ##############################
-    def rule_two_regular(self, active_node: Node, end: End, remainder: tuple[int, int], txt_with_dollar, phase_i) -> tuple[Node, (int, int)]:
+    def rule_two_regular(self, active_node: Node, end: End, remainder: tuple[int, int], txt_with_dollar, phase_i, extension_j) -> tuple[Node, (int, int)]:
         remainder_start, remainder_end = remainder
         remainder_length = remainder_end - remainder_start + 1
 
@@ -114,7 +114,7 @@ class Ukkonen_algorithm:
         new_internal_node.children[start_index_of_new_internal_node] = Edge(index_after_split_end, edge_that_need_to_split.end, edge_that_need_to_split.child_node)
 
         # Creating a new leaf for the phase i character and attach it with the new internal node
-        new_leaf = self.create_new_leaf(phase_i)
+        new_leaf = self.create_new_leaf(extension_j)
         new_leaf_index = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
         edge_to_new_leaf = Edge(phase_i, end, new_leaf)
         new_internal_node.children[new_leaf_index] = edge_to_new_leaf
@@ -143,9 +143,9 @@ class Ukkonen_algorithm:
 
         return active_node.suffix_link, new_remainder
     
-    def rule_two_alternate(self, active_node: Node, start: int, end: End, txt_with_dollar) -> tuple[Node, None]:
+    def rule_two_alternate(self, active_node: Node, start: int, end: End, txt_with_dollar, extension_j) -> tuple[Node, None]:
         # Create the leaf node and also the edge that will connect to the leaf node
-        leaf_node = self.create_new_leaf(suffix_index = start)
+        leaf_node = self.create_new_leaf(suffix_index = extension_j)
         edge_to_leaf_node = Edge(start, end, leaf_node)
 
         # Connect the active node to the leaf node via the created edge
@@ -182,7 +182,7 @@ class Ukkonen_algorithm:
             if curr_edge_to_traverse == None:
                 print(f'    Extn {extension_j+1} applies Rule 2 (alternate)')
                 print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
-                self.active_node, self.remainder = self.rule_two_alternate(active_node, phase_i, self.global_end, txt_with_dollar)
+                self.active_node, self.remainder = self.rule_two_alternate(active_node, phase_i, self.global_end, txt_with_dollar, extension_j)
                 return 2
             else:
                 print(f'    Extn {extension_j+1} applies Rule 3')
@@ -199,7 +199,7 @@ class Ukkonen_algorithm:
             if txt_with_dollar[next_char_pos] != txt_with_dollar[phase_i]:
                 print(f'    Extn {extension_j+1} applies Rule 2 (regular)')
                 print(f'    Active Node = Node {self.active_node.node_id} (suffix link to Node {self.active_node.suffix_link.node_id}); Remainder = {self.remainder_to_str_for_runLog(remainder)}')
-                self.active_node, self.remainder = self.rule_two_regular(active_node, self.global_end, remainder, txt_with_dollar, phase_i)
+                self.active_node, self.remainder = self.rule_two_regular(active_node, self.global_end, remainder, txt_with_dollar, phase_i, extension_j)
                 return 2
             else:
                 print(f'    Extn {extension_j+1} applies Rule 3')
@@ -231,9 +231,15 @@ class Ukkonen_algorithm:
     #   Depth First Search
     #########################
     def depth_first_search(self, node: Node) -> list[int]:
-        return
-    
-    
+        if node.isLeaf:
+            return [node.suffix_index]
+        result = []
+        for edge in node.children:
+            if edge is not None:
+                result += self.depth_first_search(edge.child_node)
+        return result
+
 ukkonen = Ukkonen_algorithm()
-# ukkonen.construct_suffix_tree("googol")
-ukkonen.construct_suffix_tree("abbbbcbbcbcabbbb")
+ukkonen.construct_suffix_tree("googol")
+print(ukkonen.depth_first_search(ukkonen.root))
+# ukkonen.construct_suffix_tree("abbbbcbbcbcabbbb")
