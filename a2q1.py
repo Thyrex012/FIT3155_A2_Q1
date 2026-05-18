@@ -54,10 +54,40 @@ class Ukkonen_algorithm:
             self.global_end.val = i
             for j in range(last_j, i+1):
                 self.active_node, self.remainder = self.traverse(self.active_node, self.remainder, txt_with_dollar)
-                if self.remainder == None and self.active_node.children[i+1] == None:
-                    self.rule_two_alternate(self.active_node, , txt_with_dollar, i, self.remainder)
                 return
-            
+    
+    #################################
+    #    Traversal via skip count
+    #################################
+    def traverse(self, active_node: Node, remainder, txt_with_dollar) -> tuple[Node, tuple[int,int] | None]:
+        if remainder == None:
+            return active_node, None
+        
+        remainder_start, remainder_end = remainder
+        skip_count_start = remainder_start
+        curr_node = active_node
+
+        #Performing skip counts until its no longer possible
+        while skip_count_start <= remainder_end:
+            start_char_index = ord(txt_with_dollar[skip_count_start]) - self.ALPHABET_START
+            curr_edge_to_traverse = curr_node.children[start_char_index]
+            edge_length = curr_edge_to_traverse.get_length()
+            remaining_length = remainder_end - skip_count_start + 1
+            #This would mean that the entire edge can be skipped over which allows us to get towards the next node instantly
+            if remaining_length > edge_length:
+                skip_count_start += edge_length
+                curr_node = curr_edge_to_traverse.child_node
+            # If the remaining length is smaller than the edge length then that means that we cant skip count further
+            # and return back the most recent node we're standing on along with the remaining remainder that hasn't been
+            # consumed
+            else:
+                return curr_node, (skip_count_start, remainder_end)
+        #This means that we have directly landed on a node and there is no more remainder
+        return curr_node, None
+    
+    ##############################
+    #   Suffix extensions rules
+    ##############################
     def rule_two_regular(self, active_node: Node, remainder: tuple[int, int], txt_with_dollar, phase_i, new_remainder):
         remainder_start, remainder_end = remainder
         remainder_length = remainder_end - remainder_start + 1
@@ -95,10 +125,14 @@ class Ukkonen_algorithm:
         self.active_node = active_node.suffix_link
         self.remainder = new_remainder
     
-    def rule_two_alternate(self, active_node: Node, start: int, txt_with_dollar, new_active_node, new_remainder):
-        leaf_node = self.create_new_leaf(start)
+    def rule_two_alternate(self, active_node: Node, start: int, end: End, txt_with_dollar) -> tuple[Node, None]:
+        # Create the leaf node and also the edge that will connect to the leaf node
+        leaf_node = self.create_new_leaf(suffix_index = start)
+        edge_to_leaf_node = Edge(start, end, leaf_node)
+
+        # Connect the active node to the leaf node via the created edge
         start_index_char = ord(txt_with_dollar[start]) - self.ALPHABET_START
-        active_node.children[start_index_char] = leaf_node
+        active_node.children[start_index_char] = edge_to_leaf_node
 
         # If the previous extension's pending node hasn't been resolved yet then the active node
         # for this extension will resolve it
@@ -106,38 +140,25 @@ class Ukkonen_algorithm:
             self.pending_node.suffix_link = active_node
             self.pending_node = None
 
-        self.active_node = new_active_node
-        self.remainder = new_remainder
+        # To prepare for the next extension we'll perform a suffix link traversal to the next active node 
+        # via the suffix link and the remainder is still set as None for consistant return of active node, remainder
+        new_active_node = active_node.suffix_link
+        new_remainder = None
+        
+        return new_active_node, new_remainder
     
     def rule_three(self, new_active_node, new_remainder):
         self.active_node = new_active_node
         self.remainder = new_remainder
     
-    def traverse(self, active_node: Node, remainder, txt_with_dollar) -> tuple[Node, tuple[int,int] | None]:
+    def perform_extension(self, active_node, remainder, phase_i, txt_with_dollar):
         if remainder == None:
-            return active_node, None
-        
-        remainder_start, remainder_end = remainder
-        skip_count_start = remainder_start
-        curr_node = active_node
+            start_char_index = ord(txt_with_dollar[phase_i]) - self.ALPHABET_START
+            curr_edge_to_traverse = active_node.children[start_char_index]
+            if curr_edge_to_traverse == None:
+                self.rule_two_alternate(active_node)
 
-        #Performing skip counts until its no longer possible
-        while skip_count_start <= remainder_end:
-            start_char_index = ord(txt_with_dollar[skip_count_start]) - self.ALPHABET_START
-            curr_edge_to_traverse = curr_node.children[start_char_index]
-            edge_length = curr_edge_to_traverse.get_length()
-            remaining_length = remainder_end - skip_count_start + 1
-            #This would mean that the entire edge can be skipped over which allows us to get towards the next node instantly
-            if remaining_length > edge_length:
-                skip_count_start += edge_length
-                curr_node = curr_edge_to_traverse.child_node
-            # If the remaining length is smaller than the edge length then that means that we cant skip count further
-            # and return back the most recent node we're standing on along with the remaining remainder that hasn't been
-            # consumed
-            else:
-                return curr_node, (skip_count_start, remainder_end)
-        #This means that we have directly landed on a node and there is no more remainder
-        return curr_node, None
+
 
     def create_new_leaf(self, suffix_index) -> Node:
         return Node(isLeaf=True, suffix_index= suffix_index)
@@ -145,7 +166,6 @@ class Ukkonen_algorithm:
     def create_new_internal_node(self) -> Node:
         return Node()
     
-
 
 
 
