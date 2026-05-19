@@ -51,12 +51,12 @@ class Ukkonen_algorithm:
     def construct_suffix_tree(self, txt):
         txt_with_dollar = txt + '$'
         n = len(txt_with_dollar)
-        last_j = 0
+        last_j = -1
         print("Root Node " + str(self.node_counter))
         for phase_i in range(n):
             self.global_end.val = phase_i
-            print("Phase " + str(phase_i+1) + " starts from Extn " + str(last_j+1)) # The phase and extension is converted to 1 base indexing
-            for extension_j in range(last_j, phase_i+1):
+            print("\nPhase " + str(phase_i+1) + " starts from Extn " + str(last_j+2)) # The phase and extension is converted to 1 base indexing
+            for extension_j in range(last_j+1, phase_i+1):
                 self.active_node, self.remainder = self.traverse(self.active_node, self.remainder, txt_with_dollar)
                 extension_performed = self.perform_extension(self.active_node, self.remainder, phase_i, extension_j, txt_with_dollar)
                 if extension_performed == 3:
@@ -125,6 +125,7 @@ class Ukkonen_algorithm:
         # If the previous extension's pending node hasn't been resolved yet then the pending
         # node will form a sufffix link to the newly created internal node
         if self.pending_node is not None:
+            print(f"        Linking Node {self.pending_node.node_id} to Node {active_node.node_id}")
             self.pending_node.suffix_link = new_internal_node
         
         # We'll set the new internal node as unresolved 
@@ -155,6 +156,7 @@ class Ukkonen_algorithm:
         # If the previous extension's pending node hasn't been resolved yet then the active node
         # for this extension will resolve it
         if self.pending_node is not None:
+            print(f"        Linking Node {self.pending_node.node_id} to Node {active_node.node_id}")
             self.pending_node.suffix_link = active_node
             self.pending_node = None
 
@@ -170,6 +172,7 @@ class Ukkonen_algorithm:
         # If the previous extension's pending node hasn't been resolved yet then the active node 
         # for the extension will resolve it
         if self.pending_node is not None:
+            print(f"        Linking Node {self.pending_node.node_id} to Node {new_active_node.node_id}")
             self.pending_node.suffix_link = new_active_node
             self.pending_node = None
 
@@ -224,7 +227,7 @@ class Ukkonen_algorithm:
 
     def create_new_internal_node(self) -> Node:
         self.node_counter += 1
-        print(f"        Node {self.node_counter} created: Leaf Node!")
+        print(f"        Node {self.node_counter} created: Internal Node!")
         return Node(node_id=self.node_counter)
     
     #########################
@@ -239,7 +242,12 @@ class Ukkonen_algorithm:
                 result += self.depth_first_search(edge.child_node)
         return result
 
-ukkonen = Ukkonen_algorithm()
-ukkonen.construct_suffix_tree("googol")
-print(ukkonen.depth_first_search(ukkonen.root))
+
+def compute_for_LCP(txt):
+    ukkonen = Ukkonen_algorithm()
+    ukkonen.construct_suffix_tree(txt)
+    suffix_array = ukkonen.depth_first_search(ukkonen.root)
+    print(suffix_array)
+
+compute_for_LCP("googol")
 # ukkonen.construct_suffix_tree("abbbbcbbcbcabbbb")
