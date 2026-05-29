@@ -368,7 +368,7 @@ class Ukkonen_algorithm:
                           space complexity becomes O(V+C) where V is the number of nodes and C are the number of leafs.
         """
         current_depth = parent_depth + edge_length
-
+        # Base case: The node we're at is the leaf node so we cant go further than this
         if node.isLeaf:
             return [lcp_depth]
         result = []
