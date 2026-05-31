@@ -64,15 +64,16 @@ class Ukkonen_algorithm:
         self.active_node: Node = self.root
         self.remainder: tuple[int, int] = None # The tuple represents the start and end point of the remainder
         self.pending_node: Node = None # When a new node is created in extension j it's suffix link 
-                                      # will be resolved in extension j+1
+                                       # will be resolved in extension j+1
         
     def construct_suffix_tree(self, string):
         """
         The overall structure is obtained from the psuedocode provided in week 4 lecture notes on Ukkonen's algorithm. 
         By taking into account the different optimisation tricks such as suffix links, setting edge values to (start, end), 
         skip counting during traversal, phase stopper and the rapid leaf extension, the algorithm is then able to create a 
-        suffix tree in O(n) space and time where n is the length of the string including the $ character. There are at most 
-        2n-1 nodes and 2n-2 edges so summing them together would mean that the space is bounded by O(n).
+        suffix tree in O(n) space and time where n is the length of the string including the $ character. Each node can have
+        at most 91 children which is constant. There are at most 2n-1 nodes and 2n-2 edges as well so summing them together 
+        would mean that the space is bounded by O(n).
         """
         str_with_dollar = string + '$'
         n = len(str_with_dollar)
@@ -167,7 +168,8 @@ class Ukkonen_algorithm:
         edge_that_need_to_split = active_node.children[first_char_index]
         index_at_split_end = edge_that_need_to_split.start + remainder_length - 1
 
-        # Creating a new edge from the internal node and attach it to the old child
+        # Create a new internal node at the split point and also re-attach the edge's suffix
+        # after the split point as it's child
         index_after_split_end = index_at_split_end + 1
         new_internal_node = self.create_new_internal_node()
         start_index_of_new_internal_node = ord(str_with_dollar[index_after_split_end]) - self.ALPHABET_START
