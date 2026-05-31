@@ -263,6 +263,9 @@ class Ukkonen_algorithm:
 
         return new_active_node, new_remainder
     
+    #################################
+    #  Which Extensions to Perform?
+    #################################
     def perform_extension(self, active_node: Node, remainder, phase_i: int, extension_j: int, str_with_dollar: str) -> int:
         """
         After a traversal we'll have an active node that we're standing on along with some remainder. This remainder 
@@ -387,6 +390,9 @@ class Ukkonen_algorithm:
                     result += self.depth_first_search(edge.child_node, current_depth, edge.get_length(), current_depth)
         return result
 
+############################
+# Finding the LCP via DFS
+############################
 def compute_for_LCP(string):
     """
     We'll first construct a suffix tree using ukkonen's algorithm and after that we'll run depth first search
